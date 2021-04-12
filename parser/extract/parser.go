@@ -98,8 +98,15 @@ func ParsePDF(file io.Reader) ParserData {
 
 	d := &declaration.Declaration{}	
 
-	// Basic Info.
+	// Header data
 	d.Fecha = parser.check(Date(NewExtractor(res.Body)))
+	d.Recepcion = parser.check(ReceptionDate(NewExtractor(res.Body)))
+
+	// Footer data
+	d.Descarga = parser.check(DownloadDate(NewExtractor(res.Body)))
+	d.Version = parser.checkStr(Version(NewExtractor(res.Body)))
+
+	// Basic Info.
 	d.Cedula = parser.checkInt(Cedula(NewExtractor(res.Body)))
 	d.Nombre = parser.checkStr(Name(NewExtractor(res.Body)))
 	d.Apellido = parser.checkStr(Lastname(NewExtractor(res.Body)))

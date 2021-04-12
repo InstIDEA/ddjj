@@ -25,7 +25,8 @@ func Spouse(e *Extractor) (string, error) {
 					return "", err
 				}
 
-				if fname != "" {
+				if fname != "" &&
+				len(fname) <= 32 {
 					spouse += fname
 					continue
 				}
@@ -46,7 +47,8 @@ func Spouse(e *Extractor) (string, error) {
 				return spouse, err
 			}
 
-			if lname != "" {
+			if lname != "" &&
+			len(lname) <= 32 {
 				spouse = spouse + " " + lname
 				break
 			}

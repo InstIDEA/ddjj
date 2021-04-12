@@ -15,6 +15,10 @@ type Declaration struct {
 
 	Instituciones []*Job `json:"instituciones"`
 
+	Recepcion	time.Time	`json:"recepcion"`
+	Descarga	time.Time	`json:"descarga"`
+	Version		string		`json:"version"`
+
 	// Activos
 	Deposits     []*Deposit      `json:"depositos"`
 	Debtors      []*Debtor       `json:"deudores"`

@@ -20,6 +20,7 @@ type Extractor struct {
 	SavedLine int
 	
 	Buffer []string
+	BufferHookFunc func(tokens []string) []string
 
 	Flags ExtractorFlag
 }
@@ -50,6 +51,9 @@ func NewExtractor(raw string) *Extractor {
 	return &Extractor{
 		RawData: raw,
 		Scanner: bufio.NewScanner(strings.NewReader(raw)),
+		BufferHookFunc: func(tokens []string) []string {
+			return tokens
+		},
 	}
 }
 
@@ -79,7 +83,7 @@ func (e *Extractor) Scan() bool {
 
 			if e.Flags & EXTRACTOR_FLAG_3 != 0 &&
 			text != "" {
-				e.Buffer = tokenize(text, 3)
+				e.Buffer = e.BufferHookFunc(tokenize(text, 3))
 				text = e.Buffer[0]
 			}
 
@@ -171,7 +175,7 @@ func (e *Extractor) UnbindFlag(flag ExtractorFlag) {
 	e.Flags &= flag
 }
 
-func (e *Extractor) UnbindAllFlags(flag ExtractorFlag) {
+func (e *Extractor) UnbindAllFlags() {
 	e.Flags = 0
 }
 
@@ -236,6 +240,11 @@ func isDate(line string) bool {
 	return matched
 }
 
+func isTimestamp(line string) bool {
+	matched, _ := regexp.MatchString(`[0-9]{2}/[0-9]{2}/[0-9]{4}\s*[0-9]{2}:[0-9]{2}:[0-9]{2}`, line)
+	return matched
+}
+
 func isAlpha(line string) bool {
 	matched, _ := regexp.MatchString(`[aA-zZ].*$`, line)
 	return matched
@@ -248,6 +257,11 @@ func isAlphaNum(line string) bool {
 
 func isNumber(line string) bool {
 	matched, _ := regexp.MatchString(`^[\+\-]*[0-9.,]*[0-9]$`, line)
+	return matched
+}
+
+func isBarCode(line string) bool {
+	matched, _ := regexp.MatchString(`[0-9]{5,6}-[0-9]{5,7}-[0-9]{1,3}`, line)
 	return matched
 }
 
@@ -298,6 +312,10 @@ func removeAccents(s string) string {
 	return r.Replace(s)
 }
 
+func removeSpaces(s string) string {
+	return strings.ReplaceAll(s, " ", "")
+}
+
 // split a line into words that not exceed the max continuous spaces
 func tokenize(line string, max int) []string {
 	var tokens []string
@@ -324,6 +342,54 @@ func tokenize(line string, max int) []string {
 	}
 	tokens = append(tokens, strings.TrimSpace(buffer.String()))
 	return tokens
+}
+
+// join two or more array string if one of them contains the sep string
+func combine(tokens []string, sep string) []string {
+	var result []string
+	length := len(tokens)
+
+	for i := 0; i < length; i++ {
+		if i + 1 < length &&
+		strings.Contains(tokens[i], sep) &&
+		!strings.Contains(tokens[i+1], sep) {
+			result = append(result, tokens[i] + tokens[i+1])
+			i += 1
+			continue
+		}
+		result = append(result, tokens[i])
+	}
+	return result
+}
+
+func getTime(data string) string {
+	re := regexp.MustCompile(`[0-9]{2}`)
+	values := re.FindAllString(data, -1)
+	length := len(values)
+
+	if length < 3 {
+		return ""
+	}
+
+	return fmt.Sprintf("%s:%s:%s", values[length -3], values[length -2], values[length -1])
+}
+
+func getDate(data string) string {
+	re := regexp.MustCompile(`[0-9]{2}.[0-9]{2}.[0-9]{4}`)
+	result := re.FindString(data)
+
+	if result == "" {
+		return ""
+	}
+
+	re = regexp.MustCompile(`[0-9]{2,4}`)
+	values := re.FindAllString(result, -1)
+
+	if len(values) < 3 {
+		return ""
+	}
+
+	return fmt.Sprintf("%s/%s/%s", values[0], values[1], values[2])
 }
 
 /*
@@ -388,9 +454,4 @@ func stringToYear(line string) int {
 	}
 
 	return year
-}
-
-func isBarCode(line string) bool {
-	matched, _ := regexp.MatchString(`[0-9]{5,6}-[0-9]{5,7}-[0-9]{1,3}`, line)
-	return matched
 }

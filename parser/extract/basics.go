@@ -12,7 +12,8 @@ func Date(e *Extractor) (time.Time, error) {
 	e.BindFlag(EXTRACTOR_FLAG_1)
 	if e.MoveUntilContains(CurrToken, "DECLARACIÓN") {
 		for e.Scan() {
-			if isDate(e.CurrToken) {
+			if isDate(e.CurrToken) &&
+			len(e.CurrToken) <= 10 { // not substring (%dd/%mm/%yyyy)
 				date = e.CurrToken
 				break
 			}
@@ -79,4 +80,78 @@ func Lastname(e *Extractor) (string, error) {
 		return "", errors.New("failed when extracting lastname")
 	}
 	return value, nil
+}
+
+func ReceptionDate(e *Extractor) (time.Time, error) {
+	var date string
+
+	e.BindFlag(EXTRACTOR_FLAG_1)
+	if e.MoveUntilStartWith(PrevToken, "RECEPCIONADO") {
+		val, check := isKeyValuePair(e.PrevToken, "RECEPCIONADO")
+		if check &&
+		isDate(val) {
+			date = getDate(val)
+		}
+
+		if date == "" &&
+		isDate(e.NextToken) &&
+		isBarCode(removeSpaces(e.CurrToken)) {
+			date = getDate(e.NextToken)
+		}
+	}
+
+	if date == "" {
+		return time.Time{}, errors.New("failed when extracting reception date")
+	}
+
+	t, err := time.Parse("02/01/2006", date)
+	if err != nil {
+		return time.Time{}, errors.New("Error parsing " + date + err.Error())
+	}
+	return t, nil
+}
+
+func DownloadDate(e *Extractor) (time.Time, error) {
+	var date string
+
+	e.BindFlag(EXTRACTOR_FLAG_1)
+	if e.MoveUntilStartWith(NextToken, "página") &&
+	isCurrLine(e.CurrToken, "versión") {
+		val := getDate(e.PrevToken)
+		val += " "
+		val += getTime(e.PrevToken)
+
+		if isTimestamp(val) {
+			date = val
+		}
+	}
+
+	if date == "" {
+		return time.Time{}, errors.New("failed when extracting download date")
+	}
+
+	// RFC3339 layout
+	t, err := time.Parse("02/01/2006 15:04:05", date)
+	if err != nil {
+		return time.Time{}, errors.New("Error parsing " + date + err.Error())
+	}
+	return t, nil
+}
+
+func Version(e *Extractor) (string, error) {
+	var version string
+
+	e.BindFlag(EXTRACTOR_FLAG_1)
+	if e.MoveUntilStartWith(CurrToken, "versión") {
+		val, check := isKeyValuePair(e.CurrToken, "versión")
+		if check {
+			version = val
+		}
+	}
+
+	if version == "" {
+		return "", errors.New("failed when extracting version")
+	}
+
+	return version, nil
 }

@@ -20,6 +20,12 @@ func Jobs(e *Extractor, parser *ParserData) []*declaration.Job {
 
 	job := &declaration.Job{ }
 
+	/* tokenize the read text line and combine
+	the tokens that are separed by the ':' symbol */
+	e.BufferHookFunc = func(tokens []string) []string {
+		return combine(tokens, ":")
+	}
+
 	if counter > 0 &&
 	e.MoveUntilStartWith(CurrToken, "DATOS LABORALES") {
 
@@ -85,9 +91,12 @@ func getJobTitle(e *Extractor) string {
 
 func getJobInst(e *Extractor) string {
 
-	if strings.Contains(e.PrevToken, "INSTITUCIÓN") &&
+	if strings.Contains(e.CurrToken, "INSTITUCIÓN") &&
 	strings.Contains(e.NextToken, "ACTO ADM. COM") {
-		return e.CurrToken
+		val, check := isKeyValuePair(e.CurrToken, "INSTITUCIÓN")
+		if check {
+			return val
+		}
 	}
 
 	if strings.Contains(e.PrevToken, "DIRECCIÓN") &&
